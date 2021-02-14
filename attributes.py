@@ -3,13 +3,13 @@ from tempfile import TemporaryFile
 import numpy as np
 import richdem as rd
 
-import config as c
-
 class Attributes():
 
-    def __init__(self, grid, resolution):
+    def __init__(self, grid, resolution, projection, side_len):
         self.grid = grid
         self.resolution = resolution
+        self.projection = projection
+        self.side_len = side_len
 
     def _numpy2richdem(self, in_array, no_data=-9999):
         '''
@@ -18,8 +18,8 @@ class Attributes():
         arrays into rdarrays.
         '''
         out_array = rd.rdarray(in_array, no_data=no_data)
-        out_array.projection = c.PROJECTION
-        cell_scale = np.around(a=c.SIDE_LEN/self.resolution, decimals=5)
+        out_array.projection = self.projection
+        cell_scale = np.around(a=self.side_len/self.resolution, decimals=5)
         out_array.geotransform = [0, cell_scale, 0, 0, 0, cell_scale]
         return out_array
 

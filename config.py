@@ -1,6 +1,6 @@
 import toml
 
-conf = toml.load('lidar-nn/conf.toml')
+conf = toml.load('ufunc-correct/conf.toml')
 
 locals().update(conf)
 
