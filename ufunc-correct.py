@@ -11,7 +11,8 @@ from static.description import description
 from static.blockquote import blockquote
 from static.extras import extras
 from static.js import js
-#from interpolate import Interpolate
+from attributes import Attributes
+from correction import Correction
 import config as c
 
 pn.config.raw_css = [css,]
@@ -65,34 +66,59 @@ class Interact(param.Parameterized):
 
         if opt == 'input':
             return date + ': Interpolation'
-        if opt == 'tc':
-            return date + ': Terrain Correction'
+        if opt == 'slope':
+            return date + ': Slope (radians)'
 
     @param.depends('date')
     def input(self):
         '''
         '''
         fig, ax = plt.subplots(1)
-        
-        self.filename = self.filelist[self.date]
-        array = np.load(f'{self.datapath}/{self.filename}')
 
-        ax.imshow(array, origin='lower')
+        self.filename = self.filelist[self.date]
+        self.array = np.load(f'{self.datapath}/{self.filename}')
+
+        ax.imshow(self.array, origin='lower')
 
         title = self._set_title(fn=self.filename)
         self._format_plt(fig=fig, ax=ax, title=title)
 
+        plt.close('all')
         return fig
 
     def output(self):
         '''
         '''
+        self.attributes = Attributes(self.array, resolution=300)
+        print('UPDATE resolution to param')
+        self.slope, self.aspect = self.attributes.calc_attributes()
+        
         return pn.Row('output')
 
     def export(self):
         '''
         '''
         return pn.Row('export')
+
+    
+    def plot_slope(self):
+
+        fig, ax = plt.subplots(1)
+
+        ax.imshow(self.slope, origin='lower', cmap='YlOrBr')
+
+        title = self._set_title(fn=self.filename)
+        self._format_plt(fig=fig, ax=ax, title=title)
+
+        plt.close('all')
+        return fig
+
+
+    def plot_aspect(self):
+        pass
+
+    def plot_sun(self):
+        pass
 
 interact = Interact()
 
@@ -102,7 +128,7 @@ output_params = []
 tmpl.add_panel('A', pn.Column(interact.input, *input_params))
 tmpl.add_panel('B', pn.Column(interact.output, *output_params))
 tmpl.add_panel('C', interact.export)
-tmpl.add_panel('D', pn.Row('slope plot'))
+tmpl.add_panel('D', interact.plot_slope)
 tmpl.add_panel('E', pn.Row('aspect plot'))
 tmpl.add_panel('F', pn.Row('sun plot'))
 
