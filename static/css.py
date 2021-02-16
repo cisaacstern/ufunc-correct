@@ -45,17 +45,17 @@ code {
   background-color: teal;
   border-radius: 3px;
   padding: 10px;
+  width: 307px;
 }
 .bk-btn:hover {
-  color: teal;
   background-color: darkslategrey;
-  border-radius: 3px;
-  padding: 10px;
+  cursor: pointer;
 }
 button {
   background-color: teal;
   border-radius: 5px !important;
   border: 2px solid rgb(127, 255, 212, 0.2);
+  margin-top: 10px !important;
 }
 #modal > button {
   padding-top: 5px;
@@ -99,5 +99,11 @@ button {
   color: #000;
   text-decoration: none;
   cursor: pointer;
+}
+.intertitle {
+  color: #eee;
+}
+#download > .bk-root .bk {
+  left: -35px !important;
 }
 """

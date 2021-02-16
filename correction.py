@@ -72,7 +72,7 @@ class Correction():
         '''
         return df[df['altitude'] < 90]
 
-    def calc_correction_single_timepoint(self, time):
+    def calc_correction_onetime(self, time):
         '''
         
         '''
@@ -97,7 +97,7 @@ class Correction():
 
         return cosT/cosT0
     
-    def calc_correction_full_day(self):
+    def calc_correction_fullday(self):
         '''
         here's the ufunc magic
         '''

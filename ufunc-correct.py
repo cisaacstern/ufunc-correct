@@ -1,4 +1,5 @@
 import os
+from tempfile import TemporaryFile
 
 import param
 import panel as pn
@@ -10,6 +11,7 @@ from static.css import css
 from static.description import description
 from static.blockquote import blockquote
 from static.extras import extras
+from static.returns import returns
 from static.js import js
 from attributes import Attributes
 from correction import Correction
@@ -23,6 +25,7 @@ tmpl.add_variable('app_title', name)
 tmpl.add_variable('description', description)
 tmpl.add_variable('blockquote', blockquote)
 tmpl.add_variable('extras', extras)
+tmpl.add_variable('returns', returns)
 tmpl.add_variable('js', js)
 
 class Interact(param.Parameterized):
@@ -35,8 +38,9 @@ class Interact(param.Parameterized):
         self.filelist = os.listdir(self.datapath)
         self.filelist.sort()
     
-    nums = [i for i in range(74)] #update this
-    date = param.Selector(default=0, objects=nums)
+    # TODO: improve default setting
+    DEM = param.Selector(default='20190623_NNR300S20.npy')
+    time = param.Integer(0, bounds=(0,100))
 
     @staticmethod
     def _format_imshow(fig, ax, title, 
@@ -78,108 +82,136 @@ class Interact(param.Parameterized):
         fig.patch.set_facecolor(bgc)
 
     @staticmethod
-    def _set_title(fn, opt='input'):
+    def _set_title(fn, opt):
+        '''Assigns titles for self._imshow().
         '''
-        '''
-        date = fn[:4] + '-' + fn[4:6] + '-' + fn[6:8]
+        date = f'{fn[:4]}-{fn[4:6]}-{fn[6:8]}'
 
-        if opt == 'input':
+        if opt == 'elevation':
             addendum = ': Interpolation'
         elif opt == 'slope':
             addendum = ': Slope (radians)'
         elif opt == 'aspect':
             addendum = ': Aspect (degrees)'
+        elif opt == 'correction':
+            addendum = ': Terrain Correction'
 
         return date + addendum
 
-    @param.depends('date')
-    def input(self):
-        '''
+    def _imshow(self, array, cmap, opt):
+        '''Generalized method for calling plt.imshow()
         '''
         fig, ax = plt.subplots(1)
-
-        self.filename = self.filelist[self.date]
-        self.array = np.load(f'{self.datapath}/{self.filename}')
-
-        ax.imshow(self.array, origin='lower')
-
-        title = self._set_title(fn=self.filename)
+        ax.imshow(array, origin='lower', cmap=cmap, )
+        title = self._set_title(fn=self.DEM, opt=opt)
         self._format_imshow(fig=fig, ax=ax, title=title)
-
         plt.close('all')
         return fig
 
-    def output(self):
+    def _looped_correction(self):
         '''
+        '''
+        for i in range(self.correct.sunposition_df.shape[0]):
+            if i == 0:
+                correct_stack = self.correct.calc_correction_onetime(i)
+            else:
+                correct_stack = np.dstack(
+                    (correct_stack, self.correct.calc_correction_onetime(i))
+                )
+        return correct_stack
+    
+    def _ufunc_correction(self):
+        '''
+        '''
+        correct_stack = self.correct.calc_correction_fullday()
+
+        return correct_stack
+
+    @param.depends('DEM')
+    def input(self):
+        '''Assigns the self.filename and self.elevation_array
+        instance variables. Returns as plot of self.elevation_array.
+        '''
+        self.param.DEM.default = self.filelist[0]
+        self.param.DEM.objects = self.filelist
+        self.elevation_array = np.load(f'{self.datapath}/{self.DEM}')
+        
+        return self._imshow(array=self.elevation_array, cmap='viridis', 
+                            opt='elevation')
+
+    @param.depends('time')
+    def output(self):
+        '''Instantiates the Attributes and Correction classes,
+        assigns associated instance variables, and returns a plot
+        of the terrain correction array.
         '''
         self.attributes = Attributes(
-                self.array,
-                resolution=300,
+                self.elevation_array,
+                resolution=self.elevation_array.shape[0],
                 projection=c.PROJECTION,
                 side_len=c.SIDE_LEN
         )
-        print('UPDATE resolution to param')
         self.slope, self.aspect = self.attributes.calc_attributes()
 
-        self.correction = Correction(
+        self.correct = Correction(
                 attribute_grids=(self.slope, self.aspect),
                 local_timezone=c.TIMEZONE,
-                date_str=self.filename[:8],
+                date_str=self.DEM[:8],
                 lat_lon=c.LAT_LON
         )
+        self.param.time.bounds = (0,self.correct.sunposition_df.shape[0]-1)
+        print(self.param.time.bounds)
+        self.correct_array = self.correct.calc_correction_onetime(self.time)
 
-        return pn.Row('output')
+        return self._imshow(array=self.correct_array, cmap='magma', 
+                            opt='correction')
 
     def export(self):
         '''
         '''
-        return pn.Row('export')
+        correct_stack = self._looped_correction()
+
+        outfile = TemporaryFile()
+        np.savez(outfile,
+                    elevation=self.elevation_array,
+                    slope=self.slope,
+                    aspect=self.aspect,
+                    sunposition=self.correct.sunposition_df.to_numpy(),
+                    correction_stack=correct_stack,
+        )
+        _ = outfile.seek(0)
+
+        name = f'{self.DEM[:-4]}_correction.npz'
+        return pn.widgets.FileDownload(file=outfile, filename=name)
     
     def plot_slope(self):
-        '''
+        '''Return a plot of the self.slope array
         '''        
-        fig, ax = plt.subplots(1)
-        ax.imshow(self.slope, origin='lower', cmap='YlOrBr')
-
-        title = self._set_title(fn=self.filename, opt='slope')
-        self._format_imshow(fig=fig, ax=ax, title=title)
-
-        plt.close('all')
-        return fig
+        return self._imshow(array=self.slope, cmap='YlOrBr', opt='slope')
 
     def plot_aspect(self):
+        '''Return a plot of the self.aspect array
         '''
-        '''
-        fig, ax = plt.subplots(1)
-        ax.imshow(self.aspect, origin='lower', cmap='hsv')
-
-        title = self._set_title(fn=self.filename, opt='aspect')
-        self._format_imshow(fig=fig, ax=ax, title=title)
-
-        plt.close('all')
-        return fig
+        return self._imshow(array=self.aspect, cmap='hsv', opt='aspect')
 
     def plot_sun(self):
+        '''Return a plot of sun position
         '''
-        '''
+        xs = np.deg2rad(self.correct.sunposition_df['azimuth'])
+        ys = self.correct.sunposition_df['altitude']
+        
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='polar')
-
-        xs = np.deg2rad(self.correction.sunposition_df['azimuth'])
-        ys = self.correction.sunposition_df['altitude']
-        
         ax.scatter(xs,ys, s=10, c='orange',alpha=0.5)
-        
         self._format_polar(fig=fig, ax=ax)
-
         plt.close('all')
         return fig
 
 
 interact = Interact()
 
-input_params = [interact.param.date,]
-output_params = []
+input_params = [interact.param.DEM,]
+output_params = [interact.param.time,]
 
 tmpl.add_panel('A', pn.Column(interact.input, *input_params))
 tmpl.add_panel('B', pn.Column(interact.output, *output_params))

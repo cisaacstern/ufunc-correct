@@ -18,7 +18,7 @@ template = """
   <blockquote>{{ blockquote }}</blockquote>
   <br>
   <div class="container">
-    <div class="row">
+    <div class="row centered">
       <div class="col-sm-auto">
         {{ embed(roots.A) }}
       </div>
@@ -27,13 +27,18 @@ template = """
       </div>
     </div>
     <br>
-    <p>{{ extras }}</p>
-    <br>
     <div class="row centered">
-        {{ embed(roots.C) }}
+      <p>{{ extras }}</p>
     </div>
     <br>
-    <br>
+    <div id="download" class="row centered">
+        {{ embed(roots.C) }}
+    </div>
+    <div class="row centered">
+      <br>
+      <blockquote>{{ returns }}</blockquote>
+      <br>
+    </div>
   </div>
 </div>
 
