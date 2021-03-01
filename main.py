@@ -5,6 +5,7 @@ import param
 import panel as pn
 import numpy as np
 import matplotlib.pyplot as plt
+from bokeh.settings import settings
 
 from templates.template import template
 from static.css import css
@@ -17,6 +18,7 @@ from attributes import Attributes
 from correction import Correction
 import config as c
 
+settings.resources = 'cdn'
 pn.config.raw_css = [css,]
 
 name = 'ufunc-correct'
